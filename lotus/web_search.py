@@ -48,7 +48,7 @@ def _web_search_google(
         "extracted_cited_by",
         "favicon",
         "snippet",
-        "inline_links" "publication_info",
+        "inline_linkspublication_info",
         "publication_info",
         "inline_links.cited_by.total",
     ]

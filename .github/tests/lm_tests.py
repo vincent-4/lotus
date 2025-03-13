@@ -202,12 +202,12 @@ def test_sem_extract(setup_models, model):
 
     for idx, row in df.iterrows():
         assert row["Name"] in row["Name_quote"], f"Name '{row['Name']}' not found in '{row['Name_quote']}'"
-        assert (
-            row["Sport"].lower() in row["Sport_quote"].lower()
-        ), f"Sport '{row['Sport']}' not found in '{row['Sport_quote']}'"
-        assert (
-            str(row["Number of Championships"]) in row["Number of Championships_quote"]
-        ), f"Number of Championships '{row['Number of Championships']}' not found in '{row['Number of Championships_quote']}'"
+        assert row["Sport"].lower() in row["Sport_quote"].lower(), (
+            f"Sport '{row['Sport']}' not found in '{row['Sport_quote']}'"
+        )
+        assert str(row["Number of Championships"]) in row["Number of Championships_quote"], (
+            f"Number of Championships '{row['Number of Championships']}' not found in '{row['Number of Championships_quote']}'"
+        )
 
 
 ################################################################################
@@ -453,9 +453,9 @@ def test_join_cascade(setup_models):
         school, school_type = pair
         exists = ((joined_df["School"] == school) & (joined_df["School Type"] == school_type)).any()
         assert exists, f"Expected pair {pair} does not exist in the dataframe!"
-    assert (
-        stats["join_resolved_by_large_model"] > stats["join_resolved_by_helper_model"]
-    ), stats  # helper negative still can still meet the precision target
+    assert stats["join_resolved_by_large_model"] > stats["join_resolved_by_helper_model"], (
+        stats
+    )  # helper negative still can still meet the precision target
     assert stats["join_helper_positive"] == 0, stats
 
 

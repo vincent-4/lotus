@@ -32,9 +32,7 @@ class PptxReader(BaseReader):
             from pptx import Presentation  # noqa
         except ImportError:
             raise ImportError(
-                "Please install extra dependencies that are required for "
-                "the PptxReader: "
-                "`pip install python-pptx`"
+                "Please install extra dependencies that are required for the PptxReader: `pip install python-pptx`"
             )
         self.should_caption_images = should_caption_images
         if self.should_caption_images:

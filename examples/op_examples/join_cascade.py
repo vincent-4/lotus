@@ -7,7 +7,7 @@ from lotus.vector_store import FaissVS
 
 lm = LM(model="gpt-4o-mini")
 rm = SentenceTransformersRM(model="intfloat/e5-base-v2")
-vs = FaissVS() 
+vs = FaissVS()
 
 lotus.settings.configure(lm=lm, rm=rm, vs=vs)
 data = {
@@ -134,5 +134,5 @@ print(f"Joined {df1.shape[0]} rows from df1 with {df2.shape[0]} rows from df2")
 print(f"    Join cascade took {stats['join_resolved_by_large_model']} LM calls")
 print(f"    Helper resolved {stats['join_resolved_by_helper_model']} LM calls")
 print(f"Join cascade used {stats['total_LM_calls']} LM calls in total")
-print(f"Naive join would require {df1.shape[0]*df2.shape[0]} LM calls")
+print(f"Naive join would require {df1.shape[0] * df2.shape[0]} LM calls")
 print(res)

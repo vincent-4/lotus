@@ -35,7 +35,7 @@ def get_match_prompt_binary(
     prompt = [{"type": "text", "text": f"Question: {user_instruction}\n"}]
     for idx, doc in enumerate([doc1, doc2]):
         content_text, content_image_inputs = task_instructions.context_formatter(doc)
-        prompt += [{"type": "text", "text": f"\nDocument {idx+1}:\n{content_text}"}, *content_image_inputs]
+        prompt += [{"type": "text", "text": f"\nDocument {idx + 1}:\n{content_text}"}, *content_image_inputs]
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": prompt}]
     lotus.logger.debug(f"Prompt: {messages}")
