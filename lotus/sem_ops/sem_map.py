@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Dict, Optional, Union, Tuple
+from typing import Any, Callable, Optional
 
 import pandas as pd
 
@@ -62,7 +62,7 @@ def sem_map(
         show_safe_mode(estimated_cost, estimated_LM_calls)
 
     # Set up model kwargs for temperature when sampling
-    model_kwargs: Dict[str, Any] = {}
+    model_kwargs: dict[str, Any] = {}
     if nsample > 1 and temperature is not None:
         model_kwargs["temperature"] = float(temperature)  # Ensure it's a float
 
@@ -71,7 +71,8 @@ def sem_map(
         lm_output: LMOutput = model(
             inputs, 
             show_progress_bar=True, 
-            progress_bar_desc=progress_bar_desc
+            progress_bar_desc=progress_bar_desc,
+            **model_kwargs  # Use model_kwargs for consistency, though it will be empty in this case
         )
         
         # post process results
@@ -97,16 +98,12 @@ def sem_map(
         for i in range(nsample):
             sample_progress_desc = f"{progress_bar_desc} (Sample {i+1}/{nsample})"
             
-            # Call model with temperature
-            sample_kwargs: Dict[str, Any] = {}
-            if temperature is not None:
-                sample_kwargs["temperature"] = float(temperature)
-            
+            # Use the same model_kwargs already defined above
             sample_output: LMOutput = model(
                 inputs, 
                 show_progress_bar=True, 
                 progress_bar_desc=sample_progress_desc,
-                **sample_kwargs
+                **model_kwargs
             )
             
             # post process results for this sample
@@ -130,7 +127,7 @@ def sem_map(
             
         # Set a property on the first sample with all samples
         first_sample = all_samples[0]
-        # all_samples: List[SemanticMapOutput] - contains all generated samples
+        # all_samples: list[SemanticMapOutput] - contains all generated samples
         setattr(first_sample, "all_samples", all_samples)
         
         # Return just the first sample for backward compatibility
@@ -235,6 +232,18 @@ class SemMapDataframe:
             # Get all samples
             all_samples = getattr(output, "all_samples")
             
+            # Check if we have any samples to process
+            if not all_samples:
+                # No samples case - fall back to single sample logic
+                new_df[suffix] = output.outputs
+                
+                if return_explanations:
+                    new_df["explanation" + suffix] = output.explanations
+                    
+                if return_raw_outputs:
+                    new_df["raw_output" + suffix] = output.raw_outputs
+                return new_df
+            
             # Create numbered columns for each sample
             for i, sample in enumerate(all_samples):
                 sample_suffix = f"{suffix}_{i+1}"
@@ -249,6 +258,7 @@ class SemMapDataframe:
                     new_df[f"raw_output{sample_suffix}"] = sample.raw_outputs
                     
             # Also add a column with all samples as a list
+            # For each row i, collect the output from each sample to create a list of all responses for that row
             new_df[f"{suffix}_all"] = [[s.outputs[i] for s in all_samples] for i in range(len(output.outputs))]
         else:
             # Handle single sample case
