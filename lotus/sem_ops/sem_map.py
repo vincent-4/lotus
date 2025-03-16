@@ -69,18 +69,18 @@ def sem_map(
     if nsample == 1:
         # Single sample case - standard behavior
         lm_output: LMOutput = model(
-            inputs, 
-            show_progress_bar=True, 
+            inputs,
+            show_progress_bar=True,
             progress_bar_desc=progress_bar_desc,
-            **model_kwargs  # Use model_kwargs for consistency, though it will be empty in this case
+            **model_kwargs,  # Use model_kwargs for consistency, though it will be empty in this case
         )
-        
+
         # post process results
         postprocess_output = postprocessor(lm_output.outputs, strategy in ["cot", "zs-cot"])
         lotus.logger.debug(f"raw_outputs: {lm_output.outputs}")
         lotus.logger.debug(f"outputs: {postprocess_output.outputs}")
         lotus.logger.debug(f"explanations: {postprocess_output.explanations}")
-        
+
         if safe_mode:
             model.print_total_usage()
 
@@ -89,26 +89,23 @@ def sem_map(
             outputs=postprocess_output.outputs,
             explanations=postprocess_output.explanations,
         )
-    
+
     # Multiple samples case
     else:
         all_samples = []
-        
+
         # Loop through each sample
         for i in range(nsample):
-            sample_progress_desc = f"{progress_bar_desc} (Sample {i+1}/{nsample})"
-            
+            sample_progress_desc = f"{progress_bar_desc} (Sample {i + 1}/{nsample})"
+
             # Use the same model_kwargs already defined above
             sample_output: LMOutput = model(
-                inputs, 
-                show_progress_bar=True, 
-                progress_bar_desc=sample_progress_desc,
-                **model_kwargs
+                inputs, show_progress_bar=True, progress_bar_desc=sample_progress_desc, **model_kwargs
             )
-            
+
             # post process results for this sample
             postprocess_output = postprocessor(sample_output.outputs, strategy in ["cot", "zs-cot"])
-            
+
             # Store this sample's output
             all_samples.append(
                 SemanticMapOutput(
@@ -117,19 +114,19 @@ def sem_map(
                     explanations=postprocess_output.explanations,
                 )
             )
-            
-            lotus.logger.debug(f"Sample {i+1} raw_outputs: {postprocess_output.raw_outputs}")
-            lotus.logger.debug(f"Sample {i+1} outputs: {postprocess_output.outputs}")
-            lotus.logger.debug(f"Sample {i+1} explanations: {postprocess_output.explanations}")
-        
+
+            lotus.logger.debug(f"Sample {i + 1} raw_outputs: {postprocess_output.raw_outputs}")
+            lotus.logger.debug(f"Sample {i + 1} outputs: {postprocess_output.outputs}")
+            lotus.logger.debug(f"Sample {i + 1} explanations: {postprocess_output.explanations}")
+
         if safe_mode:
             model.print_total_usage()
-            
+
         # Set a property on the first sample with all samples
         first_sample = all_samples[0]
         # all_samples: list[SemanticMapOutput] - contains all generated samples
         setattr(first_sample, "all_samples", all_samples)
-        
+
         # Return just the first sample for backward compatibility
         return first_sample
 
@@ -224,49 +221,49 @@ class SemMapDataframe:
             nsample=nsample,
             temperature=temperature,
         )
-        
+
         new_df = self._obj.copy()
-        
+
         # Check if we have multiple samples
         if nsample > 1 and hasattr(output, "all_samples"):
             # Get all samples
             all_samples = getattr(output, "all_samples")
-            
+
             # Check if we have any samples to process
             if not all_samples:
                 # No samples case - fall back to single sample logic
                 new_df[suffix] = output.outputs
-                
+
                 if return_explanations:
                     new_df["explanation" + suffix] = output.explanations
-                    
+
                 if return_raw_outputs:
                     new_df["raw_output" + suffix] = output.raw_outputs
                 return new_df
-            
+
             # Create numbered columns for each sample
             for i, sample in enumerate(all_samples):
-                sample_suffix = f"{suffix}_{i+1}"
-                
+                sample_suffix = f"{suffix}_{i + 1}"
+
                 # Add this sample's outputs to the dataframe
                 new_df[sample_suffix] = sample.outputs
-                
+
                 if return_explanations:
                     new_df[f"explanation{sample_suffix}"] = sample.explanations
-                    
+
                 if return_raw_outputs:
                     new_df[f"raw_output{sample_suffix}"] = sample.raw_outputs
-                    
+
             # Also add a column with all samples as a list
             # For each row i, collect the output from each sample to create a list of all responses for that row
             new_df[f"{suffix}_all"] = [[s.outputs[i] for s in all_samples] for i in range(len(output.outputs))]
         else:
             # Handle single sample case
             new_df[suffix] = output.outputs
-            
+
             if return_explanations:
                 new_df["explanation" + suffix] = output.explanations
-                
+
             if return_raw_outputs:
                 new_df["raw_output" + suffix] = output.raw_outputs
 
