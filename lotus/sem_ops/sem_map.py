@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, List, Dict, Optional, Union, Tuple
 
 import pandas as pd
 
@@ -22,6 +22,8 @@ def sem_map(
     strategy: str | None = None,
     safe_mode: bool = False,
     progress_bar_desc: str = "Mapping",
+    nsample: int = 1,
+    temperature: float | None = None,
 ) -> SemanticMapOutput:
     """
     Maps a list of documents to a list of outputs using a model.
@@ -34,9 +36,14 @@ def sem_map(
         examples_multimodal_data (list[dict[str, Any]] | None): The text for examples. Defaults to None.
         examples_answers (list[str] | None): The answers for examples. Defaults to None.
         cot_reasoning (list[str] | None): The reasoning for CoT. Defaults to None.
+        strategy (str | None): The reasoning strategy. Defaults to None.
+        safe_mode (bool): Whether to show safe mode. Defaults to False.
+        progress_bar_desc (str): The description for progress bar. Defaults to "Mapping".
+        nsample (int): Number of samples to generate per document. If > 1, the first sample will be returned. Defaults to 1.
+        temperature (float | None): Temperature for sampling. Only effective when nsample > 1. Defaults to None.
 
     Returns:
-        SemanticMapOutput: The outputs, raw outputs, and explanations.
+        SemanticMapOutput: The outputs, raw outputs, and explanations. If nsample > 1, this contains only the first sample.
     """
     # prepare model inputs
     inputs = []
@@ -51,25 +58,83 @@ def sem_map(
     # check if safe_mode is enabled
     if safe_mode:
         estimated_cost = sum(model.count_tokens(input) for input in inputs)
-        estimated_LM_calls = len(docs)
+        estimated_LM_calls = len(docs) * nsample
         show_safe_mode(estimated_cost, estimated_LM_calls)
 
-    # call model
-    lm_output: LMOutput = model(inputs, progress_bar_desc=progress_bar_desc)
+    # Set up model kwargs for temperature when sampling
+    model_kwargs: Dict[str, Any] = {}
+    if nsample > 1 and temperature is not None:
+        model_kwargs["temperature"] = float(temperature)  # Ensure it's a float
 
-    # post process results
-    postprocess_output = postprocessor(lm_output.outputs, strategy in ["cot", "zs-cot"])
-    lotus.logger.debug(f"raw_outputs: {lm_output.outputs}")
-    lotus.logger.debug(f"outputs: {postprocess_output.outputs}")
-    lotus.logger.debug(f"explanations: {postprocess_output.explanations}")
-    if safe_mode:
-        model.print_total_usage()
+    if nsample == 1:
+        # Single sample case - standard behavior
+        lm_output: LMOutput = model(
+            inputs, 
+            show_progress_bar=True, 
+            progress_bar_desc=progress_bar_desc
+        )
+        
+        # post process results
+        postprocess_output = postprocessor(lm_output.outputs, strategy in ["cot", "zs-cot"])
+        lotus.logger.debug(f"raw_outputs: {lm_output.outputs}")
+        lotus.logger.debug(f"outputs: {postprocess_output.outputs}")
+        lotus.logger.debug(f"explanations: {postprocess_output.explanations}")
+        
+        if safe_mode:
+            model.print_total_usage()
 
-    return SemanticMapOutput(
-        raw_outputs=postprocess_output.raw_outputs,
-        outputs=postprocess_output.outputs,
-        explanations=postprocess_output.explanations,
-    )
+        return SemanticMapOutput(
+            raw_outputs=postprocess_output.raw_outputs,
+            outputs=postprocess_output.outputs,
+            explanations=postprocess_output.explanations,
+        )
+    
+    # Multiple samples case
+    else:
+        all_samples = []
+        
+        # Loop through each sample
+        for i in range(nsample):
+            sample_progress_desc = f"{progress_bar_desc} (Sample {i+1}/{nsample})"
+            
+            # Call model with temperature
+            sample_kwargs: Dict[str, Any] = {}
+            if temperature is not None:
+                sample_kwargs["temperature"] = float(temperature)
+            
+            sample_output: LMOutput = model(
+                inputs, 
+                show_progress_bar=True, 
+                progress_bar_desc=sample_progress_desc,
+                **sample_kwargs
+            )
+            
+            # post process results for this sample
+            postprocess_output = postprocessor(sample_output.outputs, strategy in ["cot", "zs-cot"])
+            
+            # Store this sample's output
+            all_samples.append(
+                SemanticMapOutput(
+                    raw_outputs=postprocess_output.raw_outputs,
+                    outputs=postprocess_output.outputs,
+                    explanations=postprocess_output.explanations,
+                )
+            )
+            
+            lotus.logger.debug(f"Sample {i+1} raw_outputs: {postprocess_output.raw_outputs}")
+            lotus.logger.debug(f"Sample {i+1} outputs: {postprocess_output.outputs}")
+            lotus.logger.debug(f"Sample {i+1} explanations: {postprocess_output.explanations}")
+        
+        if safe_mode:
+            model.print_total_usage()
+            
+        # Set a property on the first sample with all samples
+        first_sample = all_samples[0]
+        # all_samples: List[SemanticMapOutput] - contains all generated samples
+        setattr(first_sample, "all_samples", all_samples)
+        
+        # Return just the first sample for backward compatibility
+        return first_sample
 
 
 @pd.api.extensions.register_dataframe_accessor("sem_map")
@@ -97,6 +162,8 @@ class SemMapDataframe:
         strategy: str | None = None,
         safe_mode: bool = False,
         progress_bar_desc: str = "Mapping",
+        nsample: int = 1,
+        temperature: float | None = None,
     ) -> pd.DataFrame:
         """
         Applies semantic map over a dataframe.
@@ -109,6 +176,11 @@ class SemMapDataframe:
             suffix (str): The suffix for the new columns. Defaults to "_map".
             examples (pd.DataFrame | None): The examples dataframe. Defaults to None.
             strategy (str | None): The reasoning strategy. Defaults to None.
+            safe_mode (bool): Whether to show safe mode. Defaults to False.
+            progress_bar_desc (str): The description for the progress bar. Defaults to "Mapping".
+            nsample (int): Number of samples to generate per document. Defaults to 1.
+            temperature (float | None): Temperature for sampling. If provided, overrides the model's default.
+                                      Only effective when nsample > 1. Defaults to None.
 
         Returns:
             pd.DataFrame: The dataframe with the new mapped columns.
@@ -140,6 +212,7 @@ class SemMapDataframe:
                 return_explanations = True
                 cot_reasoning = examples["Reasoning"].tolist()
 
+        # Call sem_map to get results
         output = sem_map(
             multimodal_data,
             lotus.settings.lm,
@@ -151,13 +224,40 @@ class SemMapDataframe:
             strategy=strategy,
             safe_mode=safe_mode,
             progress_bar_desc=progress_bar_desc,
+            nsample=nsample,
+            temperature=temperature,
         )
-
+        
         new_df = self._obj.copy()
-        new_df[suffix] = output.outputs
-        if return_explanations:
-            new_df["explanation" + suffix] = output.explanations
-        if return_raw_outputs:
-            new_df["raw_output" + suffix] = output.raw_outputs
+        
+        # Check if we have multiple samples
+        if nsample > 1 and hasattr(output, "all_samples"):
+            # Get all samples
+            all_samples = getattr(output, "all_samples")
+            
+            # Create numbered columns for each sample
+            for i, sample in enumerate(all_samples):
+                sample_suffix = f"{suffix}_{i+1}"
+                
+                # Add this sample's outputs to the dataframe
+                new_df[sample_suffix] = sample.outputs
+                
+                if return_explanations:
+                    new_df[f"explanation{sample_suffix}"] = sample.explanations
+                    
+                if return_raw_outputs:
+                    new_df[f"raw_output{sample_suffix}"] = sample.raw_outputs
+                    
+            # Also add a column with all samples as a list
+            new_df[f"{suffix}_all"] = [[s.outputs[i] for s in all_samples] for i in range(len(output.outputs))]
+        else:
+            # Handle single sample case
+            new_df[suffix] = output.outputs
+            
+            if return_explanations:
+                new_df["explanation" + suffix] = output.explanations
+                
+            if return_raw_outputs:
+                new_df["raw_output" + suffix] = output.raw_outputs
 
         return new_df
