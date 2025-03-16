@@ -20,11 +20,37 @@ from lotus.sem_ops import (
     sem_dedup,
     sem_topk,
 )
+import sys
 from lotus.web_search import web_search, WebSearchCorpus
 from lotus.settings import settings  # type: ignore[attr-defined]
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stdout
+)
 
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+# TODO(v): In the future, consider loguru, but requires a wider refactor.
+class ColorFormatter(logging.Formatter):
+    # Not all are used; 
+    FORMATS = {
+        logging.DEBUG: "\033[36m%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s\033[0m",
+        logging.INFO: "\033[32m%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s\033[0m",
+        logging.WARNING: "\033[33m%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s\033[0m",
+        logging.ERROR: "\033[31m%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s\033[0m",
+        # Critical is unused... but kept here for completeness.
+        logging.CRITICAL: "\033[1;31m%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s\033[0m"
+    }
+    
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
+        return formatter.format(record)
+
+for handler in logging.root.handlers:
+    handler.setFormatter(ColorFormatter())
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
