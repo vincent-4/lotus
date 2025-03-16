@@ -136,7 +136,7 @@ Required DB Parameters
 - **connection_url** : The connection url for the database
 - **query** : The query to execute
 
-Required s3 Paramaters
+Required s3 Parameters
 -----------------------
 - **aws_access_key** : The AWS access key (None for Public Access)
 - **aws_secret_key** : The AWS secret key (None for Public Access)

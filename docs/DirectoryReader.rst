@@ -4,7 +4,7 @@ File Loading with DirectoryReader
 Overview
 ---------
 The `DirectoryReader` class provides an enhanced, flexible way to ingest and process various document types, including local files, directories, and URLs. 
-It supports incremental file addition, automatic type detection, URL downloads, and efficient metadata handling, making it seemless to integrate files with LOTUS.
+It supports incremental file addition, automatic type detection, URL downloads, and efficient metadata handling, making it seamless to integrate files with LOTUS.
 
 Supported File Types
 --------------------

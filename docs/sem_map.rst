@@ -3,7 +3,7 @@ sem_map
 
 Overview
 ----------
-This operato performs a semantic projection over an input column. The langex parameter specifies this projection in natural language.
+This r performs a semantic projection over an input column. The langex parameter specifies this projection in natural language.
 
 Motivation
 -----------
