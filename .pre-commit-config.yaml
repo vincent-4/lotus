@@ -17,5 +17,5 @@ repos:
           - numpy>=1.25.0
           - pandas>=2.0.0
           - sentence-transformers>=3.0.1
-          - tiktoken>=0.7.0
+          - tiktoken>=0.9.0
           - tqdm>=4.66.4
