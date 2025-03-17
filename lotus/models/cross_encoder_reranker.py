@@ -30,6 +30,7 @@ class CrossEncoderReranker(Reranker):
         if self._model is None:
             # Only import CrossEncoder when needed
             from sentence_transformers import CrossEncoder
+
             self._model = CrossEncoder(self._model_name, device=self._device)  # type: ignore # CrossEncoder has wrong type stubs
         return self._model
 
