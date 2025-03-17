@@ -1,4 +1,3 @@
-from sentence_transformers import CrossEncoder
 
 from lotus.models.reranker import Reranker
 from lotus.types import RerankerOutput
